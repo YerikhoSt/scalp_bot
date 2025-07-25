@@ -1,0 +1,158 @@
+# ==========================================
+# SECURITY - NEVER COMMIT THESE FILES
+# ==========================================
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+config.py
+secrets.json
+api_keys.txt
+
+# ==========================================
+# PYTHON
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ==========================================
+# VIRTUAL ENVIRONMENTS
+# ==========================================
+venv/
+env/
+ENV/
+.venv/
+.env/
+trading_env/
+bot_env/
+
+# ==========================================
+# TRADING BOT SPECIFIC
+# ==========================================
+# Logs and data files
+logs/
+*.log
+trades.csv
+backtest_results/
+historical_data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Trading configuration backups
+backup_*.py
+*.backup
+old_configs/
+
+# Test files
+test_trades.py
+debug_*.py
+temp_*.py
+
+# ==========================================
+# IDE AND EDITORS
+# ==========================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ==========================================
+# OPERATING SYSTEM
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==========================================
+# JUPYTER NOTEBOOKS
+# ==========================================
+.ipynb_checkpoints
+
+# ==========================================
+# DOCUMENTATION
+# ==========================================
+docs/_build/
+
+# ==========================================
+# TESTING
+# ==========================================
+.coverage
+.pytest_cache/
+.tox/
+htmlcov/
+.cache
+
+# ==========================================
+# MISC
+# ==========================================
+*.tmp
+*.temp
+node_modules/
+.npm
+.yarn-integrity
+.next 

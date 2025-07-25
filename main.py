@@ -6,10 +6,18 @@ import threading
 from collections import deque
 from binance.client import Client
 from decimal import Decimal
+import os
+from dotenv import load_dotenv
 
-# === KONFIGURASI API ===
-API_KEY = 'vUitaT6exrgF7BJuksoOo3wiA7xvbeLV4btSx0EVf3J6RyJvgQV6CBZJbbr81fIE'
-API_SECRET = 'yjDsSW4TCvIo1ErLIsseOHmPwF6erLGXFljAbNIF3224f9QNlu9Q0lH3CaTGxeLG'
+# Load environment variables from .env file
+load_dotenv()
+
+# === SECURE API CONFIGURATION ===
+API_KEY = os.getenv('BINANCE_API_KEY')
+API_SECRET = os.getenv('BINANCE_API_SECRET')
+
+if not API_KEY or not API_SECRET:
+    raise ValueError("❌ API credentials not found! Please check your .env file")
 
 client = Client(API_KEY, API_SECRET)
 client.futures_change_leverage(symbol='BTCUSDT', leverage=100)
@@ -92,6 +100,25 @@ MAX_CONSECUTIVE_LOSSES = 3  # Stop trading after 3 consecutive losses
 MAX_DAILY_TRADES = 50      # Maximum trades per day to prevent overtrading
 DRAWDOWN_LIMIT = 0.05      # 5% maximum drawdown before position reduction
 CORRELATION_THRESHOLD = 0.7  # Avoid trading symbols with >70% correlation
+
+# BACKWARDS COMPATIBILITY VARIABLES (for show_configuration function)
+SCALPING_MIN_CONFIDENCE = SCALPING_CONFIDENCE
+SCALPING_MIN_INDICATORS = 4  # From professional configuration
+SCALPING_TAKE_PROFIT_ROI = SCALPING_BASE_TP_ROI  
+SCALPING_STOP_LOSS_ROI = SCALPING_BASE_SL_ROI
+MIN_CONFIDENCE = STANDARD_CONFIDENCE
+MIN_INDICATORS_REQUIRED = 3  # Professional minimum
+MIN_ACTIVE_INDICATORS = 5   # Professional minimum active
+COUNTER_TREND_MIN_CONFIDENCE = COUNTER_TREND_CONFIDENCE
+
+MARGIN_RATIO = BASE_MARGIN_RATIO  # For compatibility
+
+# TP/SL RANGE VARIABLES
+MIN_TAKE_PROFIT_PCT = 0.3
+MAX_TAKE_PROFIT_PCT = 2.0
+MIN_STOP_LOSS_PCT = 0.2
+MAX_STOP_LOSS_PCT = 1.5
+BASE_STOP_LOSS_PCT = 0.4
 
 # ADVANCED INDICATOR SETTINGS
 RSI_PERIOD = 14
@@ -1164,10 +1191,8 @@ def analyze_technical_indicators(symbol):
             
         volatility_regime, atr_pct, vol_multiplier, current_atr = detect_volatility_regime(entry_df, symbol)
         
-        # Step 4: Multi-timeframe momentum confirmation
+        # Step 4: Multi-timeframe momentum confirmation - ADAPTIVE APPROACH
         mtf_momentum = analyze_multi_timeframe_momentum(symbol)
-        if mtf_momentum['momentum_strength'] < 0.6:  # Need strong momentum agreement
-            return 'HOLD', 0.0, {'reason': f'Weak momentum alignment: {mtf_momentum["momentum_strength"]:.1f}'}
         
         # Step 5: Volume profile analysis
         volume_profile = analyze_volume_profile(entry_df, symbol)
@@ -1183,12 +1208,29 @@ def analyze_technical_indicators(symbol):
         # Step 7: Analyze higher timeframe trend (4H)
         trend_direction, trend_strength = analyze_trend_direction(timeframe_data['trend'])
         
-        # Professional filter: Only trade with strong trends AND momentum alignment
+        # ADAPTIVE PROFESSIONAL FILTERING - More practical for crypto markets
         if trend_strength < ADX_STRENGTH_THRESHOLD:
             return 'HOLD', 0.0, {'reason': f'Weak trend strength: {trend_strength:.1f}'}
         
-        if mtf_momentum['momentum_agreement'] != trend_direction and mtf_momentum['momentum_agreement'] != 'NEUTRAL':
-            return 'HOLD', 0.0, {'reason': 'MTF momentum divergence from trend'}
+        # IMPROVED: Only block trades if momentum is strongly opposing (not just different)
+        momentum_conflict = (
+            mtf_momentum['momentum_agreement'] == 'BULLISH' and trend_direction == 'BEARISH'
+        ) or (
+            mtf_momentum['momentum_agreement'] == 'BEARISH' and trend_direction == 'BULLISH'
+        )
+        
+        # Additional check: If momentum strength is very weak, be more cautious
+        weak_momentum = mtf_momentum['momentum_strength'] < 0.4
+        
+        if momentum_conflict and weak_momentum:
+            return 'HOLD', 0.0, {'reason': f'Strong momentum conflict (MTF: {mtf_momentum["momentum_agreement"]}, Trend: {trend_direction})'}
+        
+        # Apply momentum penalty instead of blocking trades entirely
+        momentum_penalty = 0.0
+        if momentum_conflict:
+            momentum_penalty = -0.15  # 15% confidence penalty for conflicting signals
+        elif mtf_momentum['momentum_strength'] < 0.6:
+            momentum_penalty = -0.1   # 10% penalty for weak momentum
         
         # Calculate all indicators with professional enhancements
         # 1. MACD with momentum weighting
@@ -1287,12 +1329,18 @@ def analyze_technical_indicators(symbol):
             else:
                 indicator_status['RSI'] = 'NEUTRAL'
             
-            # 3. Multi-timeframe Momentum Confluence (17% weight)
+            # 3. Multi-timeframe Momentum Confluence (17% weight) - ADAPTIVE
             if mtf_momentum['momentum_agreement'] == 'BULLISH':
                 weight = 0.17 * mtf_momentum['momentum_strength']
                 signals.append('BUY')
                 confidence += weight
                 indicator_status['MTF_MOMENTUM'] = 'BUY'
+            elif mtf_momentum['momentum_agreement'] == 'NEUTRAL' and mtf_momentum['momentum_strength'] > 0.5:
+                # Neutral momentum but still has some strength - partial credit
+                weight = 0.08 * mtf_momentum['momentum_strength']
+                signals.append('BUY')
+                confidence += weight
+                indicator_status['MTF_MOMENTUM'] = 'PARTIAL_BUY'
             else:
                 indicator_status['MTF_MOMENTUM'] = 'NEUTRAL'
             
@@ -1379,12 +1427,18 @@ def analyze_technical_indicators(symbol):
             else:
                 indicator_status['RSI'] = 'NEUTRAL'
             
-            # 3. Multi-timeframe Momentum Confluence (17% weight)
+            # 3. Multi-timeframe Momentum Confluence (17% weight) - ADAPTIVE
             if mtf_momentum['momentum_agreement'] == 'BEARISH':
                 weight = 0.17 * mtf_momentum['momentum_strength']
                 signals.append('SELL')
                 confidence += weight
                 indicator_status['MTF_MOMENTUM'] = 'SELL'
+            elif mtf_momentum['momentum_agreement'] == 'NEUTRAL' and mtf_momentum['momentum_strength'] > 0.5:
+                # Neutral momentum but still has some strength - partial credit
+                weight = 0.08 * mtf_momentum['momentum_strength']
+                signals.append('SELL')
+                confidence += weight
+                indicator_status['MTF_MOMENTUM'] = 'PARTIAL_SELL'
             else:
                 indicator_status['MTF_MOMENTUM'] = 'NEUTRAL'
             
@@ -1450,6 +1504,7 @@ def analyze_technical_indicators(symbol):
         # Apply professional confidence adjustments
         confidence = confidence * session_multiplier  # Session weighting
         confidence = confidence + volume_penalty      # Volume penalty
+        confidence = confidence + momentum_penalty    # Momentum conflict penalty
         
         # Volatility regime adjustment
         if volatility_regime == 'HIGH':
@@ -1474,6 +1529,7 @@ def analyze_technical_indicators(symbol):
             'sr_levels': sr_levels,
             'session_multiplier': session_multiplier,
             'volume_penalty': volume_penalty,
+            'momentum_penalty': momentum_penalty,
             'rsi': current_rsi,
             'stoch_rsi_k': current_stoch_rsi_k,
             'stoch_rsi_d': current_stoch_rsi_d,
@@ -2366,7 +2422,7 @@ def trade():
     if market_session['overlap']:
         session_status += " (OVERLAP - BEST TIME!)"
     
-    print(f"💰 Balance: ${usdt_balance:.2f} | Capital per symbol: ${capital_per_symbol:.2f}")
+    print(f"💰 Balance: ${usdt_balance:.2f} | Professional ATR-based sizing active")
     print(f"📊 Market Session: {session_status}")
     print(f"🎯 Advanced Multi-Timeframe Analysis: {TREND_TIMEFRAME}→{STRUCTURE_TIMEFRAME}→{ENTRY_TIMEFRAME}")
     print(f"⚡ Filtering: 9 indicators, {MIN_CONFIDENCE*100:.0f}% confidence, trend-following only")
